@@ -20,6 +20,8 @@ pragma solidity ^0.4.24;
 
 import "./zeppelin/SafeMath.sol";
 import "./zeppelin/Ownable.sol";
+import "./zeppelin/Crowdsale.sol";
+import "./zeppelin/MintedCrowdsale.sol";
 
 // --------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------
@@ -31,7 +33,7 @@ import "./zeppelin/Ownable.sol";
 
 import "./wiji_token.sol";
 
-contract wiji_sale is Ownable
+contract wiji_sale is Ownable, Crowdsale, MintedCrowdsale
 {
     using SafeMath for uint256;
 
@@ -170,7 +172,7 @@ contract wiji_sale is Ownable
 	 *
 	 * @dev Initialize the WIJI ICO Sale
 	 */
-	constructor(wiji_token _token_contract) public
+	constructor(wiji_token _token_contract) Crowdsale(1, msg.sender, _token_contract) public
 	{
         require(_token_contract != address(0));
         token_contract = _token_contract;
@@ -202,20 +204,12 @@ contract wiji_sale is Ownable
 	// TOKEN ISSUING FUNCTIONS  -------------------------------------------------------
 	// --------------------------------------------------------------------------------
 
-	/**
-	* @dev This default function allows token to be purchased by directly
-	*      sending ether to this smart contract.
-	*/
-	function () public payable
-	{
-        purchaseTokens(msg.sender);
-	}
-
-	/**
-	* @dev   Issue token based on Ether received.
-	* @param _beneficiary Address that newly issued token will be sent to.
-	*/
-	function purchaseTokens(address _beneficiary) public payable in_progress
+    /**
+     * @dev Validation of an incoming purchase. Use require statements to revert state when conditions are not met. Use super to concatenate validations.
+     * @param _beneficiary Address performing the token purchase
+     * @param _wei Value in wei involved in the purchase
+     */
+	function _preValidatePurchase(address _beneficiary, uint256 _wei) internal in_progress
 	{
 		uint256 max_user_cap = check_white_list_addr_internal(_beneficiary);
 		//max_user_cap is in ETH * 1000 so it misses 18 - 3 zeros
@@ -239,24 +233,42 @@ contract wiji_sale is Ownable
 		//check for the authorized whitelist user cap
 		require (contributions[_beneficiary].add(msg.value) <= max_user_cap);
 
-		// compute how many tokens it will have
-		uint256 _tokens_amount = compute_token_amount(msg.value);
-
-		//check for hard cap
-        require(token_contract.totalSupply().add(_tokens_amount) <= TOKENS_SALE_HARD_CAP);
-
-		generate_tokens(_beneficiary, _tokens_amount);
-
-		// increased after the token creation process, Openzeppelin increase it
-		// before the issuing, it makes more sense to me to do it after, because
-		// the issue can revert
-		token_sold = token_sold.add(_tokens_amount);
-
-		// increase the contribution of the user
-		contributions[_beneficiary] = contributions[_beneficiary].add(msg.value);
-
+        // Add OpenZeppelin's checks
+        super._preValidatePurchase(_beneficiary, _wei);
 	}
 
+    /**
+     * @dev Executed when a purchase has been validated and is ready to be executed. Not necessarily emits/sends tokens.
+     * @param _beneficiary Address receiving the tokens
+     * @param _tokens Number of tokens to be purchased
+     */
+    function _processPurchase(address _beneficiary, uint256 _tokens) internal in_progress
+    {
+		//check for hard cap
+        require(token_contract.totalSupply().add(_tokens) <= TOKENS_SALE_HARD_CAP);
+
+        // Let OpenZeppelin do the processing
+        super._processPurchase(_beneficiary, _tokens);
+    }
+
+    /**
+     * @dev Override for extensions that require an internal state to check for validity (current user contributions, etc.)
+     * @param _beneficiary Address receiving the tokens
+     * @param _wei Value in wei involved in the purchase
+     */
+    function _updatePurchasingState(address _beneficiary, uint256 _wei) internal in_progress
+    {
+		// increase the contribution of the user
+		contributions[_beneficiary] = contributions[_beneficiary].add(_wei);
+    }
+
+    /**
+     * @dev Determines how ETH is stored/forwarded on purchases.
+     */
+    function _forwardFunds() internal
+    {
+        // Do nothing, funds are only forwarded when the ICO ends
+    }
 
 	/**
 	* @dev   issue tokens for a single buyer
@@ -279,12 +291,12 @@ contract wiji_sale is Ownable
 	// --------------------------------------------------------------------------------
 
 
-	/**
-	* @dev  Compute the amount of WIJI token that can be purchased.
-	* @param eth_amount Amount of Ether to purchase WIJI.
-	* @return Amount of WIJI token to purchase
-	*/
-	function compute_token_amount(uint256 eth_amount) internal view returns (uint256 tokens)
+    /**
+     * @dev Override to extend the way in which ether is converted to tokens.
+     * @param eth_amount Value in wei to be converted into tokens
+     * @return Number of tokens that can be purchased with the specified _weiAmount
+     */
+	function _getTokenAmount(uint256 eth_amount) internal view returns (uint256 tokens)
 	{
 		uint64 _now = get_now();
 		require(_now <= ICO_TOKEN_SALE_END);
@@ -313,7 +325,7 @@ contract wiji_sale is Ownable
 	*/
 	function price() public view returns (uint256 tokens)
 	{
-		return compute_token_amount(1 ether);
+		return _getTokenAmount(1 ether);
 	}
 
 	/**
