@@ -18,12 +18,8 @@ pragma solidity ^0.4.24;
 // -----------------             https://openzeppelin.org             -------------------
 // --------------------------------------------------------------------------------------
 
-import "./zeppelin/ERC20.sol";
 import "./zeppelin/SafeMath.sol";
-import "./zeppelin/BasicToken.sol";
-import "./zeppelin/StandardToken.sol";
 import "./zeppelin/Ownable.sol";
-import "./zeppelin/BurnableToken.sol";
 
 // --------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------
@@ -44,40 +40,40 @@ contract wiji_sale is Ownable
     // CONSTANTS ---------------------------------------------------------------
 	// -------------------------------------------------------------------------
 
-	uint8  public constant decimals                   = 18;
+    uint256 public constant DECIMAL_FACTOR = 10**18;
 
 	// Maximum tokens that could be allocated (2 billion) it's unreachable because of token burns
-	uint256 public constant TOKEN_MAX_CIRCULATION     = 2000000000 * (10**uint256(decimals));
+	uint256 public constant TOKEN_MAX_CIRCULATION     = 2000000000 * DECIMAL_FACTOR;
 
 	// Tokens to be sold (900m)
-	uint256 public constant TOKENS_SALE_HARD_CAP      = 1000000000 * (10**uint256(decimals));
+	uint256 public constant TOKENS_SALE_HARD_CAP      = 1000000000 * DECIMAL_FACTOR;
 	// Tokens soft cap (100m)
-	uint256 public constant TOKENS_SALE_SOFT_CAP      =  100000000 * (10**uint256(decimals));
+	uint256 public constant TOKENS_SALE_SOFT_CAP      =  100000000 * DECIMAL_FACTOR;
 
 	// Tokens for community unlocked every quarter (480m)
-	uint256 public constant TOKENS_COMMUNITY_MAX      =  480000000 * (10**uint256(decimals));
+	uint256 public constant TOKENS_COMMUNITY_MAX      =  480000000 * DECIMAL_FACTOR;
 	// Tokens for community unlocked on demand (300m)
-	uint256 public constant TOKENS_RESERVE_MAX        =  300000000 * (10**uint256(decimals));
+	uint256 public constant TOKENS_RESERVE_MAX        =  300000000 * DECIMAL_FACTOR;
 	// Tokens for team (180m)
-	uint256 public constant TOKENS_TEAM_MAX           =  180000000 * (10**uint256(decimals));
+	uint256 public constant TOKENS_TEAM_MAX           =  180000000 * DECIMAL_FACTOR;
 	// Tokens for team + bounties + advisors (40m)
-	uint256 public constant TOKENS_ADVISORS_MAX       =   40000000 * (10**uint256(decimals));
+	uint256 public constant TOKENS_ADVISORS_MAX       =   40000000 * DECIMAL_FACTOR;
 
 
 	// ICO tokens for sale, the remaining tokens of each sale will be reported to the next
 	// step 1 pre-sale     : Mon, 18 Jun 2018 12:42:42 GMT -
 	//                       100m token to sell - bonus 30%
-	uint256 constant ICO_TOKEN_SALE_MAX_1             =  100000000 * (10**uint256(decimals));
+	uint256 constant ICO_TOKEN_SALE_MAX_1             =  100000000 * DECIMAL_FACTOR;
 	//uint256 ICO_TOKEN_SALE_DATE_1     = 1529325762;
 
 	// step 2 public sale  : Mon, 09 Jul 2018 12:42:42 GMT -
 	//                       200m token to sell - bonus 10%
-	uint256 constant ICO_TOKEN_SALE_MAX_2             =  200000000 * (10**uint256(decimals));
+	uint256 constant ICO_TOKEN_SALE_MAX_2             =  200000000 * DECIMAL_FACTOR;
 	uint256 constant ICO_TOKEN_SALE_DATE_2            = 1531140162;
 
 	// step 3 public sale  : Mon, 16 Jul 2018 12:42:42 GMT -
 	//                       700m token to sell - bonus  0%
-	uint256 constant ICO_TOKEN_SALE_MAX_3             =  700000000 * (10**uint256(decimals));
+	uint256 constant ICO_TOKEN_SALE_MAX_3             =  700000000 * DECIMAL_FACTOR;
 	uint256 constant ICO_TOKEN_SALE_DATE_3            = 1531744962;
 
 	// End of public sale  : Sun, 26 Aug 2018 12:42:42 GMT -
@@ -98,8 +94,6 @@ contract wiji_sale is Ownable
 
 	// Issue event index starting from 0.
 	//uint256 public issue_index                        = 0;
-	// Tokens sold
-	uint256 public token_sold                         = 0;
 
 
 
@@ -274,11 +268,8 @@ contract wiji_sale is Ownable
 		require (_beneficiary != address(0));
         require (_tokens_amount != 0);
 
-		// compute without actually increasing it
-		uint256 increased_total_supply = token_contract.totalSupply().add(_tokens_amount);
-
 		// roll back if the max cap is reached (should be impossible)
-		require(increased_total_supply <= TOKEN_MAX_CIRCULATION);
+		require(token_contract.totalSupply().add(_tokens_amount) <= TOKEN_MAX_CIRCULATION);
 
         // TODO : Change this
 		// increase token total supply
@@ -369,7 +360,7 @@ contract wiji_sale is Ownable
 		// We calculate the ratio of what we have sold, max sold tokens are 1000m
 		// we times it by 1000000 to use integers for calculation (everything is in wei)
 		// ex : we have sold 150m (15%) tokens it's 150m * 1m / 1000m = 150000
-		uint256 ratio_sold = token_sold.mul(1000000).div(TOKENS_SALE_HARD_CAP);
+		uint256 ratio_sold = token_contract.totalSupply().mul(1000000).div(TOKENS_SALE_HARD_CAP);
 
 
 		// ISSUE TEAM + BOUNTY + ADVISORS TOKEN at the end of the ICO
@@ -606,8 +597,7 @@ contract wiji_sale is Ownable
 
 	function printf(string _msg, uint256 _val) public onlyOwner
 	{
-        // TODO
-		//emit Print(_msg, _val);
+		token_contract.printf(_msg, _val);
 	}
 
 }
