@@ -11,5 +11,11 @@ module.exports = function(deployer)
   {
     wiji_instance = instance;
     return deployer.deploy(Wiji_ICO, Wiji.address);
+  }).then(function()
+  {
+    return Wiji_ICO.deployed().then(function()
+    {
+      wiji_instance.set_ico_address(Wiji_ICO.address);
+    });
   });
 };

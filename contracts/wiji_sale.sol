@@ -271,13 +271,8 @@ contract wiji_sale is Ownable
 		// roll back if the max cap is reached (should be impossible)
 		require(token_contract.totalSupply().add(_tokens_amount) <= TOKEN_MAX_CIRCULATION);
 
-        // TODO : Change this
 		// increase token total supply
-		//totalSupply_ = increased_total_supply;
-		// update the buyer's balance to number of tokens sent
-		//balances[_beneficiary] = balances[_beneficiary].add(_tokens_amount);
-		// event is fired when tokens issued
-		//emit Issue(_beneficiary, _tokens_amount);
+		token_contract.mint(_beneficiary, _tokens_amount);
 	}
 
     // TOKEN SALE FUNCTIONS  ----------------------------------------------------------
@@ -387,10 +382,7 @@ contract wiji_sale is Ownable
 	function  move_unlock_tokens(address _to, uint256 _value)
 		public onlyOwner after_token_sale after_close
 	{
-        // TODO: Call wiji_token's transfer method
-        //balances[address(this)] = balances[address(this)].sub(_value);
-        //balances[_to] = balances[_to].add(_value);
-        //emit Transfer(address(this), _to, _value);
+        token_contract.transferFrom(address(this), _to, _value);
 	}
 
 	/**

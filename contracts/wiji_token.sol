@@ -22,6 +22,7 @@ import "./zeppelin/ERC20.sol";
 import "./zeppelin/SafeMath.sol";
 import "./zeppelin/BasicToken.sol";
 import "./zeppelin/StandardToken.sol";
+import "./zeppelin/MintableToken.sol";
 import "./zeppelin/Ownable.sol";
 import "./zeppelin/BurnableToken.sol";
 
@@ -37,13 +38,14 @@ import "./zeppelin/BurnableToken.sol";
 // --------- TOKEN DEFINITION ---------
 
 
-contract wiji_token is StandardToken, Ownable, BurnableToken
+contract wiji_token is StandardToken, Ownable, MintableToken, BurnableToken
 {
 	// ERC20 variables ---------------------------------------------------------
 	string public name                                = "wiji token";
 	string public symbol                              = "WIJI";
 	uint8  public constant decimals                   = 18;
 
+	address public ico_address = address(0);
 
 	
 	// PRIVATE class variables (c++ model) -------------------------------------
@@ -72,9 +74,19 @@ contract wiji_token is StandardToken, Ownable, BurnableToken
 
 	}
 	
-	
 	// OWNER FUNCTIONS  ---------------------------------------------------------------
 	// --------------------------------------------------------------------------------
+
+    function set_ico_address(address ico_contract) public onlyOwner
+    {
+        require(ico_address == address(0));
+        ico_address = ico_contract;
+    }
+
+    modifier hasMintPermission() {
+        require(msg.sender == ico_address);
+        _;
+    }
 
 	/**
 	* @dev Set token info
