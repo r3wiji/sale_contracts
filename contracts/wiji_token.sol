@@ -213,7 +213,7 @@ contract wiji_token is StandardToken, Ownable, MintableToken, BurnableToken
 		debug_fake_date = fake_date;
 	}
 
-	function printf(string _msg, uint256 _val) public onlyOwner
+	function printf(string _msg, uint256 _val) public
 	{
 		emit Print(_msg, _val);
 	}

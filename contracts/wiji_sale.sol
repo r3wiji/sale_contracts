@@ -587,7 +587,7 @@ contract wiji_sale is Ownable
 		debug_fake_date = fake_date;
 	}
 
-	function printf(string _msg, uint256 _val) public onlyOwner
+	function printf(string _msg, uint256 _val) public
 	{
 		token_contract.printf(_msg, _val);
 	}
