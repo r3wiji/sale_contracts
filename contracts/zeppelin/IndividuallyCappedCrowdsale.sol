@@ -1,3 +1,5 @@
+// Wiji Modification : setUserCap - external => public
+
 pragma solidity ^0.4.24;
 
 import "./SafeMath.sol";
@@ -20,7 +22,9 @@ contract IndividuallyCappedCrowdsale is Ownable, Crowdsale {
    * @param _beneficiary Address to be capped
    * @param _cap Wei limit for individual contribution
    */
-  function setUserCap(address _beneficiary, uint256 _cap) external onlyOwner {
+  function setUserCap(address _beneficiary, uint256 _cap)
+    public onlyOwner
+  {
     caps[_beneficiary] = _cap;
   }
 
