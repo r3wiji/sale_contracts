@@ -22,6 +22,7 @@ import "./zeppelin/SafeMath.sol";
 import "./zeppelin/Ownable.sol";
 import "./zeppelin/Crowdsale.sol";
 import "./zeppelin/MintedCrowdsale.sol";
+import "./zeppelin/IndividuallyCappedCrowdsale.sol";
 
 // --------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------
@@ -32,8 +33,11 @@ import "./zeppelin/MintedCrowdsale.sol";
 // --------------------------------------------------------------------------------------
 
 import "./wiji_token.sol";
+import "./IC_Crowdsale_LUT.sol";
 
-contract wiji_sale is Ownable, Crowdsale, MintedCrowdsale
+contract wiji_sale is Ownable,
+	Crowdsale, MintedCrowdsale, IndividuallyCappedCrowdsale,
+	IC_Crowdsale_LUT
 {
     using SafeMath for uint256;
 
@@ -127,14 +131,6 @@ contract wiji_sale is Ownable, Crowdsale, MintedCrowdsale
 	uint256 public advisors_fund_tokens               = 0;
 	uint256 public community_fund_tokens              = 0; // max possible
 
-    // White listed addresses (who passed the KYC process)
-	// if contains the max amount the user can buy in ETH * 1000 units
-	mapping(address => uint64) private white_list;
-	address[] private white_list_LUT;
-
-	// Contributions history
-	mapping(address => uint256) public contributions;
-
     // MODIFIERS ---------------------------------------------------------------
 	// -------------------------------------------------------------------------
 
@@ -211,16 +207,6 @@ contract wiji_sale is Ownable, Crowdsale, MintedCrowdsale
      */
 	function _preValidatePurchase(address _beneficiary, uint256 _wei) internal in_progress
 	{
-		uint256 max_user_cap = check_white_list_addr_internal(_beneficiary);
-		//max_user_cap is in ETH * 1000 so it misses 18 - 3 zeros
-		max_user_cap = max_user_cap.mul(10**uint256(15));
-
-		// only accept white listed addresses
-		require (max_user_cap > 0);
-
-		//convert it in wei * 1000
-		//max_user_cap = max_user_cap.mul(10**uint256(decimals - 2));
-
 		// Minimum amount to invest
 		uint256 MINIMUM_TOKEN_BUY      = 0.05 ether;
 		// Maximum amount to invest
@@ -229,9 +215,6 @@ contract wiji_sale is Ownable, Crowdsale, MintedCrowdsale
 		// only accept a minimum amount of ETH?
 		require (msg.value >= MINIMUM_TOKEN_BUY &&
 		         msg.value <= MAXIMUM_TOKEN_BUY);
-
-		//check for the authorized whitelist user cap
-		require (contributions[_beneficiary].add(msg.value) <= max_user_cap);
 
         // Add OpenZeppelin's checks
         super._preValidatePurchase(_beneficiary, _wei);
@@ -249,17 +232,6 @@ contract wiji_sale is Ownable, Crowdsale, MintedCrowdsale
 
         // Let OpenZeppelin do the processing
         super._processPurchase(_beneficiary, _tokens);
-    }
-
-    /**
-     * @dev Override for extensions that require an internal state to check for validity (current user contributions, etc.)
-     * @param _beneficiary Address receiving the tokens
-     * @param _wei Value in wei involved in the purchase
-     */
-    function _updatePurchasingState(address _beneficiary, uint256 _wei) internal in_progress
-    {
-		// increase the contribution of the user
-		contributions[_beneficiary] = contributions[_beneficiary].add(_wei);
     }
 
     /**
@@ -494,72 +466,23 @@ contract wiji_sale is Ownable, Crowdsale, MintedCrowdsale
 	// --------------------------------------------------------------------------------
 
 	/**
-	* @dev  	Add or modify an address in the white list
-	*/
-	function  set_address_to_whitelist(address addr, uint64 max) public onlyOwner
-	{
-		if (white_list[addr] == 0)
-			white_list_LUT.push(addr);
-
-		white_list[addr] = max;
-	}
-
-	/**
-	* @dev  	Add multiple addresses to the white list
-	*/
-	function  set_addresses_to_whitelist(address[] addresses, uint64[] maxes) public onlyOwner
-	{
-		for (uint256 i = 0; i < addresses.length; i++)
-			set_address_to_whitelist(addresses[i], maxes[i]);
-	}
-
-	/**
-	* @dev  	check is an address is in the white list (internal)
+	* @dev  	check is an address is in the white list. onlyOwner
   * @return the number of maximum allowed ETH
 	*/
-	function  check_white_list_addr_internal(address _addr) internal constant returns (uint64)
+	function  getUserCap(address _addr)
+	  public view	onlyOwner returns (uint256)
 	{
-		return white_list[_addr];
+		return super.getUserCap(_addr);
 	}
-
-	/**
-	* @dev  	check is an address is in the white list
-  * @return the number of maximum allowed ETH
-	*/
-	function  check_white_list_addr(address _addr)	public constant	onlyOwner returns (uint64)
-	{
-		return check_white_list_addr_internal(_addr);
-	}
-
-	/**
-	* @dev
-  * @return return the white list size
-	*/
-	function  get_white_list_length() public constant onlyOwner returns (uint64)
-	{
-		return uint64(white_list_LUT.length);
-	}
-
-	/**
-	* @dev
-  * @return return the addresses present in the list in an array[]
-	*/
-	function  get_whitelisted_addresses() public constant onlyOwner returns (address[])
-	{
-		return white_list_LUT;
-	}
-
-
-	// CONTRIBUTORS FUNCTIONS  --------------------------------------------------------
-	// --------------------------------------------------------------------------------
 
 	/**
 	* @dev  	Amount of ETH contributed by an address (in case of refund)
   * @return return the number of ETH in wei
 	*/
-	function  get_contributed(address _addr)	public constant	onlyOwner returns (uint256)
+	function  getUserContribution(address _addr)
+	  public view onlyOwner returns (uint256)
 	{
-		return contributions[_addr];
+		return super.getUserContribution(_addr);
 	}
 
 	/**
@@ -568,6 +491,7 @@ contract wiji_sale is Ownable, Crowdsale, MintedCrowdsale
 	*/
 	function  refund_contributor(address _addr) public onlyOwner after_token_sale
 	{
+		require (1 == 0, "TODO");
 		require (token_contract.totalSupply() < TOKENS_SALE_SOFT_CAP);
 
 		if (contributions[_addr] > 0)
