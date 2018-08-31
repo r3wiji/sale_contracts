@@ -135,13 +135,6 @@ contract wiji_sale is Ownable,
     // MODIFIERS ---------------------------------------------------------------
   // -------------------------------------------------------------------------
 
-  // Require that the end of the sale has passed
-  modifier after_token_sale
-  {
-    require(get_now() > ICO_TOKEN_SALE_END);
-    _;
-  }
-
     /**
    * CONSTRUCTOR
    *
@@ -338,7 +331,7 @@ contract wiji_sale is Ownable,
   }
 
   function  move_unlock_tokens(address _to, uint256 _value)
-    public onlyOwner after_token_sale is_closed
+    public onlyOwner afterClose is_closed
   {
     token_contract.transferFrom(address(this), _to, _value);
   }
@@ -348,7 +341,7 @@ contract wiji_sale is Ownable,
   *         locked for 1 year (365 days after ICO END)
   */
   function  claim_locked_team_tokens()
-    public onlyOwner after_token_sale is_closed
+    public onlyOwner afterClose is_closed
   {
     require (!team_claimed);
 
@@ -370,7 +363,7 @@ contract wiji_sale is Ownable,
   *         locked for 18 months (547 days after ICO END)
   */
   function  claim_locked_reserve_tokens()
-    public onlyOwner after_token_sale is_closed
+    public onlyOwner afterClose is_closed
   {
     require (!reserve_claimed);
 
@@ -400,7 +393,7 @@ contract wiji_sale is Ownable,
   */
 
   function  get_possible_community_tokens(uint256 power_factor)
-    public onlyOwner after_token_sale is_closed
+    public onlyOwner afterClose is_closed
   {
     uint64 _now = get_now();
 
@@ -466,7 +459,8 @@ contract wiji_sale is Ownable,
   * @dev    Refund if the token sale doesn't reach the soft cap
   * @return none
   */
-  function  refund_contributor(address _addr) public onlyOwner after_token_sale
+  function  refund_contributor(address _addr)
+    public onlyOwner afterClose
   {
     require (1 == 0, "TODO");
     require (token_contract.totalSupply() < TOKENS_SALE_SOFT_CAP);

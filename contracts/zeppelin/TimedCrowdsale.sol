@@ -1,3 +1,5 @@
+// Wiji Modification : new modifiers - beforeOpen and afterClose
+
 pragma solidity ^0.4.24;
 
 import "./SafeMath.sol";
@@ -20,6 +22,24 @@ contract TimedCrowdsale is Crowdsale {
   modifier onlyWhileOpen {
     // solium-disable-next-line security/no-block-members
     require(block.timestamp >= openingTime && block.timestamp <= closingTime);
+    _;
+  }
+
+  /**
+   * @dev Reverts if not before crowdsale time range.
+   */
+  modifier beforeOpen {
+    // solium-disable-next-line security/no-block-members
+    require(block.timestamp < openingTime);
+    _;
+  }
+
+  /**
+   * @dev Reverts if not after crowdsale time range.
+   */
+  modifier afterClose {
+    // solium-disable-next-line security/no-block-members
+    require(block.timestamp > closingTime);
     _;
   }
 
