@@ -23,6 +23,7 @@ import "./zeppelin/Ownable.sol";
 import "./zeppelin/Crowdsale.sol";
 import "./zeppelin/MintedCrowdsale.sol";
 import "./zeppelin/IndividuallyCappedCrowdsale.sol";
+import "./zeppelin/TimedCrowdsale.sol";
 
 // --------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------
@@ -34,10 +35,12 @@ import "./zeppelin/IndividuallyCappedCrowdsale.sol";
 
 import "./wiji_token.sol";
 import "./IC_Crowdsale_LUT.sol";
+import "./ClosableCrowdsale.sol";
 
 contract wiji_sale is Ownable,
-  Crowdsale, MintedCrowdsale, IndividuallyCappedCrowdsale,
-  IC_Crowdsale_LUT
+  Crowdsale, MintedCrowdsale,
+  IndividuallyCappedCrowdsale, IC_Crowdsale_LUT,
+  TimedCrowdsale
 {
   using SafeMath for uint256;
 
@@ -85,6 +88,7 @@ contract wiji_sale is Ownable,
   // End of public sale  : Sun, 26 Aug 2018 12:42:42 GMT -
   //                        remaining token will be burned
   uint256 public constant ICO_TOKEN_SALE_END        = 1535287362;
+  uint256 public constant ICO_TOKEN_SALE_START      = 1535287362;
 
 
   // PRIVATE class variables (c++ model) -------------------------------------
@@ -138,8 +142,7 @@ contract wiji_sale is Ownable,
   modifier in_progress
   {
     require(token_contract.totalSupply() < TOKENS_SALE_HARD_CAP
-            && !token_sale_closed
-            && !is_token_sale_ended());
+            && !token_sale_closed);
     _;
   }
 
@@ -159,7 +162,7 @@ contract wiji_sale is Ownable,
   // Require that the end of the sale has passed
   modifier after_token_sale
   {
-    require(is_token_sale_ended());
+    require(get_now() > ICO_TOKEN_SALE_END);
     _;
   }
 
@@ -168,7 +171,10 @@ contract wiji_sale is Ownable,
    *
    * @dev Initialize the WIJI ICO Sale
    */
-  constructor(wiji_token _token_contract) Crowdsale(1, msg.sender, _token_contract) public
+  constructor(wiji_token _token_contract)
+    Crowdsale(1, msg.sender, _token_contract)
+    TimedCrowdsale(ICO_TOKEN_SALE_START, ICO_TOKEN_SALE_END)
+    public
   {
     require(_token_contract != address(0));
     token_contract = _token_contract;
@@ -205,7 +211,8 @@ contract wiji_sale is Ownable,
      * @param _beneficiary Address performing the token purchase
      * @param _wei Value in wei involved in the purchase
      */
-  function _preValidatePurchase(address _beneficiary, uint256 _wei) internal in_progress
+  function _preValidatePurchase(address _beneficiary, uint256 _wei)
+    internal onlyWhileOpen in_progress
   {
     // Minimum amount to invest
     uint256 MINIMUM_TOKEN_BUY      = 0.05 ether;
@@ -225,7 +232,8 @@ contract wiji_sale is Ownable,
    * @param _beneficiary Address receiving the tokens
    * @param _tokens Number of tokens to be purchased
    */
-  function _processPurchase(address _beneficiary, uint256 _tokens) internal in_progress
+  function _processPurchase(address _beneficiary, uint256 _tokens)
+    internal onlyWhileOpen in_progress
   {
   //check for hard cap
     require(token_contract.totalSupply().add(_tokens) <= TOKENS_SALE_HARD_CAP);
@@ -268,10 +276,10 @@ contract wiji_sale is Ownable,
    * @param eth_amount Value in wei to be converted into tokens
    * @return Number of tokens that can be purchased with the specified _weiAmount
    */
-  function _getTokenAmount(uint256 eth_amount) internal view returns (uint256 tokens)
+  function _getTokenAmount(uint256 eth_amount)
+    internal view onlyWhileOpen returns (uint256 tokens)
   {
     uint64 _now = get_now();
-    require(_now <= ICO_TOKEN_SALE_END);
 
     // Base exchange rate is set to 1 ETH = 21000 WIJI other rates with discount
     uint256 BASE_RATE_0               = 21000 * DEBUG_MULTIPLICATOR;
@@ -308,15 +316,6 @@ contract wiji_sale is Ownable,
     require (token_contract.totalSupply() >= TOKENS_SALE_SOFT_CAP);
     //owner_address.transfer(this.balance);
     owner_address.transfer(address(this).balance);
-  }
-
-  /**
-  * @dev    ask if the token sale is finished
-  * @return a bool if it's finshed
-  */
-  function is_token_sale_ended() public constant returns (bool)
-  {
-    return (ICO_TOKEN_SALE_END < get_now());
   }
 
   /**
@@ -515,6 +514,14 @@ contract wiji_sale is Ownable,
     if (debug_fake_date > 0)
       return (debug_fake_date);
     return (uint64(block.timestamp));
+  }
+
+  // @dev This modifier overrides TimedCrowdsale's. Remove it to use the real Zeppelin implementation
+  modifier onlyWhileOpen
+  {
+    uint256 _now = get_now();
+    require(_now >= openingTime && _now <= closingTime);
+    _;
   }
 
   // @dev DEBUG set a fake date for debug
