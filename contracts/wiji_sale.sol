@@ -40,7 +40,7 @@ import "./ClosableCrowdsale.sol";
 contract wiji_sale is Ownable,
   Crowdsale, MintedCrowdsale,
   IndividuallyCappedCrowdsale, IC_Crowdsale_LUT,
-  TimedCrowdsale
+  TimedCrowdsale, ClosableCrowdsale
 {
   using SafeMath for uint256;
 
@@ -99,9 +99,6 @@ contract wiji_sale is Ownable,
   // Last community quarter called
   uint256 last_community_quarter_called             = 0;
 
-  // token sale status
-  bool public    token_sale_closed                  = false;
-
   // Issue event index starting from 0.
   //uint256 public issue_index                        = 0;
 
@@ -137,27 +134,6 @@ contract wiji_sale is Ownable,
 
     // MODIFIERS ---------------------------------------------------------------
   // -------------------------------------------------------------------------
-
-  // Require that the buyers can still purchase
-  modifier in_progress
-  {
-    require(token_contract.totalSupply() < TOKENS_SALE_HARD_CAP
-            && !token_sale_closed);
-    _;
-  }
-
-  // Allow the closing to happen only once
-  modifier before_close
-  {
-    require(!token_sale_closed);
-    _;
-  }
-
-  modifier after_close
-  {
-    require(token_sale_closed);
-    _;
-  }
 
   // Require that the end of the sale has passed
   modifier after_token_sale
@@ -212,7 +188,7 @@ contract wiji_sale is Ownable,
      * @param _wei Value in wei involved in the purchase
      */
   function _preValidatePurchase(address _beneficiary, uint256 _wei)
-    internal onlyWhileOpen in_progress
+    internal onlyWhileOpen is_open
   {
     // Minimum amount to invest
     uint256 MINIMUM_TOKEN_BUY      = 0.05 ether;
@@ -233,7 +209,7 @@ contract wiji_sale is Ownable,
    * @param _tokens Number of tokens to be purchased
    */
   function _processPurchase(address _beneficiary, uint256 _tokens)
-    internal onlyWhileOpen in_progress
+    internal onlyWhileOpen is_open
   {
   //check for hard cap
     require(token_contract.totalSupply().add(_tokens) <= TOKENS_SALE_HARD_CAP);
@@ -255,7 +231,8 @@ contract wiji_sale is Ownable,
   * @param _beneficiary addresses that the tokens will be sent to.
   * @param _tokens_amount the amount of tokens, with decimals expanded (full).
   */
-  function generate_tokens(address _beneficiary, uint256 _tokens_amount) internal before_close
+  function generate_tokens(address _beneficiary, uint256 _tokens_amount)
+    internal is_open
   {
     require (_beneficiary != address(0));
     require (_tokens_amount != 0);
@@ -329,7 +306,8 @@ contract wiji_sale is Ownable,
   *     ADV+BOUNTY  2% : max TOKENS_ADVISORS_MAX  (   40m) - advisors + bounties unlocked
   *
   */
-  function  close_ico() public onlyOwner before_close
+  function  on_close_crowdsale()
+    internal onlyOwner is_closed
   {
     //if the soft_cap is not reached we can't close the ICO
     //if it's never reached then we can only launch the refund method
@@ -357,13 +335,10 @@ contract wiji_sale is Ownable,
     // calculation of community tokens and issue the tokens
     community_fund_tokens = TOKENS_COMMUNITY_MAX.mul(ratio_sold).div(1000000);
     generate_tokens(address(this), community_fund_tokens);
-
-    // close the sale all future calculation will be based on the values
-    token_sale_closed = true;
   }
 
   function  move_unlock_tokens(address _to, uint256 _value)
-    public onlyOwner after_token_sale after_close
+    public onlyOwner after_token_sale is_closed
   {
     token_contract.transferFrom(address(this), _to, _value);
   }
@@ -372,7 +347,8 @@ contract wiji_sale is Ownable,
   * @dev    Ask for the second half of team tokens
   *         locked for 1 year (365 days after ICO END)
   */
-  function  claim_locked_team_tokens() public onlyOwner after_token_sale after_close
+  function  claim_locked_team_tokens()
+    public onlyOwner after_token_sale is_closed
   {
     require (!team_claimed);
 
@@ -393,7 +369,8 @@ contract wiji_sale is Ownable,
   * @dev    Ask for the reserve tokens
   *         locked for 18 months (547 days after ICO END)
   */
-  function  claim_locked_reserve_tokens() public onlyOwner after_token_sale after_close
+  function  claim_locked_reserve_tokens()
+    public onlyOwner after_token_sale is_closed
   {
     require (!reserve_claimed);
 
@@ -422,7 +399,8 @@ contract wiji_sale is Ownable,
   *         during time (default 3)
   */
 
-  function  get_possible_community_tokens(uint256 power_factor) public onlyOwner after_token_sale after_close
+  function  get_possible_community_tokens(uint256 power_factor)
+    public onlyOwner after_token_sale is_closed
   {
     uint64 _now = get_now();
 
