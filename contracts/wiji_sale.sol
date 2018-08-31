@@ -70,25 +70,25 @@ contract wiji_sale is Ownable,
 
 
   // ICO tokens for sale, the remaining tokens of each sale will be reported to the next
-  // step 1 pre-sale     : Mon, 18 Jun 2018 12:42:42 GMT -
+  // step 1 pre-sale     : 01 Jan 2019 00:00:00 GMT -
   //                       100m token to sell - bonus 30%
   uint256 constant ICO_TOKEN_SALE_MAX_1             =  100000000 * DECIMAL_FACTOR;
-  //uint256 ICO_TOKEN_SALE_DATE_1     = 1529325762;
+  //uint256 ICO_TOKEN_SALE_DATE_1     = 1546300800;
 
-  // step 2 public sale  : Mon, 09 Jul 2018 12:42:42 GMT -
+  // step 2 public sale  : 01 Feb 2019 00:00:00 GMT -
   //                       200m token to sell - bonus 10%
   uint256 constant ICO_TOKEN_SALE_MAX_2             =  200000000 * DECIMAL_FACTOR;
-  uint256 constant ICO_TOKEN_SALE_DATE_2            = 1531140162;
+  uint256 constant ICO_TOKEN_SALE_DATE_2            = 1548979200;
 
-  // step 3 public sale  : Mon, 16 Jul 2018 12:42:42 GMT -
+  // step 3 public sale  : 01 Mar 2019 00:00:00 GMT -
   //                       700m token to sell - bonus  0%
   uint256 constant ICO_TOKEN_SALE_MAX_3             =  700000000 * DECIMAL_FACTOR;
-  uint256 constant ICO_TOKEN_SALE_DATE_3            = 1531744962;
+  uint256 constant ICO_TOKEN_SALE_DATE_3            = 1551398400;
 
-  // End of public sale  : Sun, 26 Aug 2018 12:42:42 GMT -
+  // End of public sale  : 01 Apr 2019 00:00:00 GMT -
   //                        remaining token will be burned
-  uint256 public constant ICO_TOKEN_SALE_END        = 1535287362;
-  uint256 public constant ICO_TOKEN_SALE_START      = 1535287362;
+  uint256 public constant ICO_TOKEN_SALE_START      = 1546300800;
+  uint256 public constant ICO_TOKEN_SALE_END        = 1554076800;
 
 
   // PRIVATE class variables (c++ model) -------------------------------------
