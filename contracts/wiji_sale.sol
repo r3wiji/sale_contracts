@@ -364,7 +364,7 @@ contract wiji_sale is Ownable,
   {
     require (!team_claimed);
 
-    uint64   _now = get_now();
+    uint256   _now = get_now();
 
     require (_now >= (ICO_TOKEN_SALE_END + (365*24*60*60)));
 
@@ -386,7 +386,7 @@ contract wiji_sale is Ownable,
   {
     require (!reserve_claimed);
 
-    uint64   _now = get_now();
+    uint256   _now = get_now();
 
     require (_now >= (ICO_TOKEN_SALE_END + (547*24*60*60)));
 
@@ -414,7 +414,7 @@ contract wiji_sale is Ownable,
   function  get_possible_community_tokens(uint256 power_factor)
     public onlyOwner afterClose is_closed
   {
-    uint64 _now = get_now();
+    uint256 _now = get_now();
 
     if (power_factor <= 0)
       power_factor = 3;
@@ -496,14 +496,14 @@ contract wiji_sale is Ownable,
   // DEBUG ONLY FUNCTIONS  ----------------------------------------------------------
   // --------------------------------------------------------------------------------
 
-  uint64  public debug_fake_date                    = 0;
+  uint256  public debug_fake_date                    = 0;
 
   // @dev Get the current date - used for debug
-  function get_now() internal constant returns (uint64 tokens)
+  function get_now() internal constant returns (uint256 tokens)
   {
     if (debug_fake_date > 0)
       return (debug_fake_date);
-    return (uint64(block.timestamp));
+    return (uint256(block.timestamp));
   }
 
   // @dev This modifier overrides TimedCrowdsale's. Remove it to use the real Zeppelin implementation
@@ -515,7 +515,7 @@ contract wiji_sale is Ownable,
   }
 
   // @dev DEBUG set a fake date for debug
-  function debug_set_date(uint64 fake_date) public onlyOwner
+  function debug_set_date(uint256 fake_date) public onlyOwner
   {
     debug_fake_date = fake_date;
   }
