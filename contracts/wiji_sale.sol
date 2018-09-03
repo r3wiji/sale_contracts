@@ -36,11 +36,13 @@ import "./zeppelin/TimedCrowdsale.sol";
 import "./wiji_token.sol";
 import "./IC_Crowdsale_LUT.sol";
 import "./ClosableCrowdsale.sol";
+import "./StagedPriceCrowdsale.sol";
 
 contract wiji_sale is Ownable,
   Crowdsale, MintedCrowdsale,
   IndividuallyCappedCrowdsale, IC_Crowdsale_LUT,
-  TimedCrowdsale, ClosableCrowdsale
+  TimedCrowdsale, ClosableCrowdsale,
+  StagedPriceCrowdsale
 {
   using SafeMath for uint256;
 
@@ -49,6 +51,7 @@ contract wiji_sale is Ownable,
   // CONSTANTS ---------------------------------------------------------------
   // -------------------------------------------------------------------------
 
+  uint256 public constant ZERO           = 0;
   uint256 public constant DECIMAL_FACTOR = 10**18;
 
   // Maximum tokens that could be allocated (2 billion) it's unreachable because of token burns
@@ -89,6 +92,13 @@ contract wiji_sale is Ownable,
   //                        remaining token will be burned
   uint256 public constant ICO_TOKEN_SALE_START      = 1546300800;
   uint256 public constant ICO_TOKEN_SALE_END        = 1554076800;
+
+
+  uint256 public constant DEBUG_MULTIPLICATOR       = 1000;
+  // Base exchange rate is set to 1 ETH = 21000 WIJI other rates with discount
+  uint256 public constant BASE_RATE_0               = 21000 * DEBUG_MULTIPLICATOR;
+  uint256 public constant BASE_RATE_10              = 23100 * DEBUG_MULTIPLICATOR;
+  uint256 public constant BASE_RATE_30              = 27300 * DEBUG_MULTIPLICATOR;
 
 
   // PRIVATE class variables (c++ model) -------------------------------------
@@ -135,18 +145,32 @@ contract wiji_sale is Ownable,
     // MODIFIERS ---------------------------------------------------------------
   // -------------------------------------------------------------------------
 
-    /**
+  /**
    * CONSTRUCTOR
    *
    * @dev Initialize the WIJI ICO Sale
    */
   constructor(wiji_token _token_contract)
     Crowdsale(1, msg.sender, _token_contract)
-    TimedCrowdsale(ICO_TOKEN_SALE_START, ICO_TOKEN_SALE_END)
+    StagedPriceCrowdsale(
+      /* ABIEncoderV2
+      [
+        StagedPrice(ICO_TOKEN_SALE_START, BASE_RATE_30),
+        StagedPrice(ICO_TOKEN_SALE_DATE_2, BASE_RATE_10),
+        StagedPrice(ICO_TOKEN_SALE_DATE_3, BASE_RATE_0),
+        StagedPrice(ICO_TOKEN_SALE_END, 0)
+      ]
+      */
+      [ICO_TOKEN_SALE_START, ICO_TOKEN_SALE_END],
+      [BASE_RATE_30        , ZERO              ]
+    )
     public
   {
     require(_token_contract != address(0));
     token_contract = _token_contract;
+
+    addStagedRate(ICO_TOKEN_SALE_DATE_2, BASE_RATE_10);
+    addStagedRate(ICO_TOKEN_SALE_DATE_3, BASE_RATE_0);
   }
 
 
@@ -250,11 +274,6 @@ contract wiji_sale is Ownable,
     internal view onlyWhileOpen returns (uint256 tokens)
   {
     uint64 _now = get_now();
-
-    // Base exchange rate is set to 1 ETH = 21000 WIJI other rates with discount
-    uint256 BASE_RATE_0               = 21000 * DEBUG_MULTIPLICATOR;
-    uint256 BASE_RATE_10              = 23100 * DEBUG_MULTIPLICATOR;
-    uint256 BASE_RATE_30              = 27300 * DEBUG_MULTIPLICATOR;
 
     uint256 supply = token_contract.totalSupply();
 
@@ -478,7 +497,6 @@ contract wiji_sale is Ownable,
   // --------------------------------------------------------------------------------
 
   uint64  public debug_fake_date                    = 0;
-  uint256 public constant DEBUG_MULTIPLICATOR        = 1000;
 
   // @dev Get the current date - used for debug
   function get_now() internal constant returns (uint64 tokens)
