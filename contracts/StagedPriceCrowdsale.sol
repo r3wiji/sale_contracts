@@ -53,6 +53,14 @@ contract StagedPriceCrowdsale is Ownable, TimedCrowdsale
     require(stages[last].rate == 0);
   }
 
+  /*
+   * @dev Update the closingTime variable from TimedCrowdsale
+   */
+  modifier updateClosingTime
+  {
+    _;
+    closingTime = stages[stages.length - 1].date;
+  }
 
   /**
    * @dev Add a stage to the crowdsale.
@@ -63,7 +71,7 @@ contract StagedPriceCrowdsale is Ownable, TimedCrowdsale
   function addStagedRate(uint256 _date, uint256 _rate)
   // ABIEncoderV2 WHEN
   //function addStagedRate(StagedPrice _new_stage)
-    public onlyOwner beforeOpen
+    internal onlyOwner beforeOpen updateClosingTime
     returns (uint256 _new_index)
   {
     StagedPrice memory _new_stage = StagedPrice(_date, _rate); // ABIEncoderV2
@@ -89,7 +97,7 @@ contract StagedPriceCrowdsale is Ownable, TimedCrowdsale
    * @return The new number of changes
    */
   function removeStagedRate(uint256 _index)
-    public onlyOwner beforeOpen
+    internal onlyOwner beforeOpen updateClosingTime
     returns (uint256 _new_length)
   {
     require(_index > 0);
