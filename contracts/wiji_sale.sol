@@ -162,15 +162,17 @@ contract wiji_sale is Ownable,
       ]
       */
       [ICO_TOKEN_SALE_START, ICO_TOKEN_SALE_END],
-      [BASE_RATE_30        , ZERO              ]
+      [BASE_RATE_30        , ZERO              ],
+      [ICO_TOKEN_SALE_MAX_1, ZERO              ],
+      [false               , false             ]
     )
     public
   {
     require(_token_contract != address(0));
     token_contract = _token_contract;
 
-    addStagedRate(ICO_TOKEN_SALE_DATE_2, BASE_RATE_10);
-    addStagedRate(ICO_TOKEN_SALE_DATE_3, BASE_RATE_0);
+    addStagedRate(ICO_TOKEN_SALE_DATE_2, BASE_RATE_10, ICO_TOKEN_SALE_MAX_2, false);
+    addStagedRate(ICO_TOKEN_SALE_DATE_3, BASE_RATE_0 , ZERO, false);
   }
 
 
@@ -264,29 +266,6 @@ contract wiji_sale is Ownable,
   // TOKEN SALE FUNCTIONS  ----------------------------------------------------------
   // --------------------------------------------------------------------------------
 
-
- /**
-   * @dev Override to extend the way in which ether is converted to tokens.
-   * @param eth_amount Value in wei to be converted into tokens
-   * @return Number of tokens that can be purchased with the specified _weiAmount
-   */
-  function _getTokenAmount(uint256 eth_amount)
-    internal view onlyWhileOpen returns (uint256 tokens)
-  {
-    uint64 _now = get_now();
-
-    uint256 supply = token_contract.totalSupply();
-
-    // if date is above the pre sale end 1 or the max number is sold then we propose next step
-    if      ((_now <= ICO_TOKEN_SALE_DATE_2) &&                              // <= Mon, 09 Jul 2018 12:42:42 GMT
-             (supply < ICO_TOKEN_SALE_MAX_1))                          // total < 100m
-      tokens = eth_amount.mul(BASE_RATE_30);
-    else if ((_now <= ICO_TOKEN_SALE_DATE_3) &&                             // <= Mon, 16 Jul 2018 12:42:42 GMT
-             (supply < ICO_TOKEN_SALE_MAX_1 + ICO_TOKEN_SALE_MAX_2))  // total < 100m + 200m
-      tokens = eth_amount.mul(BASE_RATE_10);
-    else                                                                    // <= Sun, 26 Aug 2018 12:42:42 GMT
-      tokens = eth_amount.mul(BASE_RATE_0);
-  }
 
   /**
   * @dev    calculate the current number of WIJI for 1 ether .

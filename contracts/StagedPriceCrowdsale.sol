@@ -16,6 +16,8 @@ contract StagedPriceCrowdsale is Ownable, TimedCrowdsale
   struct StagedPrice {
     uint256 date;
     uint256 rate;
+    uint256 reserve;
+    bool reserve_in_wei;
   }
 
   StagedPrice[] public stages;
@@ -26,7 +28,7 @@ contract StagedPriceCrowdsale is Ownable, TimedCrowdsale
    * @param _rates The stage rates
    * param _stages The stages dates and rates. Note that the date is the starting point
    */
-  constructor(uint256[2] _dates, uint256[2] _rates)
+  constructor(uint256[2] _dates, uint256[2] _rates, uint256[2] _reserves, bool[2] _in_weis)
     TimedCrowdsale(_dates[0], _dates[_dates.length - 1])
   // Can't wait for ABIEncoderV2
   //constructor(StagedPrice[] _stages)
@@ -34,8 +36,10 @@ contract StagedPriceCrowdsale is Ownable, TimedCrowdsale
     public
   {
     require(_dates.length == _rates.length);
+    require(_dates.length == _reserves.length);
+    require(_dates.length == _in_weis.length);
     for(uint256 j = 0; j < _dates.length; ++j)
-      stages.push(StagedPrice(_dates[j], _rates[j]));
+      stages.push(StagedPrice(_dates[j], _rates[j], _reserves[j], _in_weis[j]));
 
     // Remove the above and uncomment this when ABIEncoderV2 is ready to ship to live
     // stages = _stages;
@@ -68,13 +72,13 @@ contract StagedPriceCrowdsale is Ownable, TimedCrowdsale
    * @param _rate The new stage rate
    * @return The index the new stage was inserted at
    */
-  function addStagedRate(uint256 _date, uint256 _rate)
+  function addStagedRate(uint256 _date, uint256 _rate, uint256 reserve, bool in_wei)
   // ABIEncoderV2 WHEN
   //function addStagedRate(StagedPrice _new_stage)
     internal onlyOwner beforeOpen updateClosingTime
     returns (uint256 _new_index)
   {
-    StagedPrice memory _new_stage = StagedPrice(_date, _rate); // ABIEncoderV2
+    StagedPrice memory _new_stage = StagedPrice(_date, _rate, reserve, in_wei); // ABIEncoderV2
 
     require(_new_stage.date > stages[0].date);
     require(_new_stage.rate > 0);
@@ -135,15 +139,79 @@ contract StagedPriceCrowdsale is Ownable, TimedCrowdsale
   }
 
   /**
+   * @dev Returns the current stage
+   * @return The current stage
+   */
+  function getCurrentStage()
+    public view onlyWhileOpen
+    returns (uint256)
+  {
+    for(uint256 i = stages.length - 1; i >= 0; --i)
+    // solium-disable-next-line security/no-block-members
+      if(stages[i].date <= block.timestamp)
+        return i;
+  }
+
+  /**
    * @dev Overrides parent method taking into account variable rate.
    * @param _weiAmount The value in wei to be converted into tokens
    * @return The number of tokens _weiAmount wei will buy at present time
    */
   function _getTokenAmount(uint256 _weiAmount)
-    internal view returns (uint256)
+    internal view returns (uint256 token_amount)
   {
-    uint256 currentRate = getCurrentRate();
-    return currentRate.mul(_weiAmount);
+    uint256             c_stage_ix = getCurrentStage();
+    StagedPrice storage c_stage = stages[c_stage_ix];
+    require(c_stage.rate > 0);
+    
+    token_amount = c_stage.rate.mul(_weiAmount);
+
+    // If there is a reserve, use it
+    if(c_stage.reserve > 0)
+    {
+      uint256 remaining_reserve_wei = 0;
+      uint256 c_tokens = 0;
+     
+      // The reserve is in tokens
+      if(c_stage.reserve_in_wei == false)
+      {
+        if(c_stage.reserve > token_amount)
+        {
+          c_stage.reserve -= token_amount;
+          return token_amount;
+        }
+        else
+        {
+          remaining_reserve_wei = c_stage.reserve.div(c_stage.rate);
+          c_tokens = c_stage.reserve;
+        }
+      }
+      else // The reserve is in wei
+      {
+        if(c_stage.reserve > _weiAmount)
+        {
+          c_stage.reserve -= _weiAmount;
+          return token_amount;
+        }
+        else
+        {
+          remaining_reserve_wei = c_stage.reserve;
+          c_tokens = c_stage.rate.mul(remaining_reserve_wei);
+        }
+      }
+
+      // Close the current stage since its reserve has been depleted
+      // This is equivalent to making the next stage start now
+      require(c_stage_ix < stages.length - 1);
+      // solium-disable-next-line security/no-block-members
+      stages[c_stage_ix + 1].date = block.timestamp;
+
+      // The remaining wei will use the next stage's rates
+      token_amount =  c_tokens +
+                      _getTokenAmount(_weiAmount - remaining_reserve_wei);
+    }
+
+    return token_amount;
   }
 
 }
