@@ -55,6 +55,55 @@ contract StagedPriceCrowdsale is Ownable, TimedCrowdsale
 
 
   /**
+   * @dev Add a stage to the crowdsale.
+   * @param _date The date when the new stage starts
+   * @param _rate The new stage rate
+   * @return The index the new stage was inserted at
+   */
+  function addStagedRate(uint256 _date, uint256 _rate)
+  // ABIEncoderV2 WHEN
+  //function addStagedRate(StagedPrice _new_stage)
+    public onlyOwner beforeOpen
+    returns (uint256 _new_index)
+  {
+    StagedPrice memory _new_stage = StagedPrice(_date, _rate); // ABIEncoderV2
+
+    require(_new_stage.date > stages[0].date);
+    require(_new_stage.rate > 0);
+
+    _new_index = stages.length;
+    stages.length++;
+
+    while(_new_stage.date < stages[_new_index - 1].date)
+    {
+      stages[_new_index] = stages[_new_index - 1];
+      --_new_index;
+    }
+
+    stages[_new_index] = _new_stage;
+  }
+
+  /**
+   * @dev Remove a stage from the crowdsale.
+   * @param _index The stage index to remove
+   * @return The new number of changes
+   */
+  function removeStagedRate(uint256 _index)
+    public onlyOwner beforeOpen
+    returns (uint256 _new_length)
+  {
+    require(_index > 0);
+    require(_index < stages.length);
+
+    _new_length = stages.length - 1;
+    for(uint256 i = _index; i < _new_length; i++)
+      //stages[i] = stages[++i]; This doesn't work in Solidity somehow
+      stages[i] = stages[i + 1];
+
+    --stages.length;
+  }
+
+  /**
    * @dev Returns the number of stages
    * @return The number of stages
    */
