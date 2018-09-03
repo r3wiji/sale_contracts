@@ -153,14 +153,6 @@ contract wiji_sale is Ownable,
   constructor(wiji_token _token_contract)
     Crowdsale(1, msg.sender, _token_contract)
     StagedPriceCrowdsale(
-      /* ABIEncoderV2
-      [
-        StagedPrice(ICO_TOKEN_SALE_START, BASE_RATE_30),
-        StagedPrice(ICO_TOKEN_SALE_DATE_2, BASE_RATE_10),
-        StagedPrice(ICO_TOKEN_SALE_DATE_3, BASE_RATE_0),
-        StagedPrice(ICO_TOKEN_SALE_END, 0)
-      ]
-      */
       [ICO_TOKEN_SALE_START, ICO_TOKEN_SALE_DATE_2, ICO_TOKEN_SALE_DATE_3, ICO_TOKEN_SALE_END],
       [BASE_RATE_30        , BASE_RATE_10         , BASE_RATE_0          , ZERO              ],
       [ICO_TOKEN_SALE_MAX_1, ICO_TOKEN_SALE_MAX_2 , ICO_TOKEN_SALE_MAX_3 , ZERO              ],

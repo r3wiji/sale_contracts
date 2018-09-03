@@ -30,9 +30,6 @@ contract StagedPriceCrowdsale is Ownable, TimedCrowdsale
    */
   constructor(uint256[4] _dates, uint256[4] _rates, uint256[4] _reserves, bool[4] _in_weis)
     TimedCrowdsale(_dates[0], _dates[_dates.length - 1])
-  // Can't wait for ABIEncoderV2
-  //constructor(StagedPrice[] _stages)
-  //  TimedCrowdsale(_stages[0].date, _stages[_stages.length - 1].date)
     public
   {
     require(_dates.length == _rates.length);
@@ -40,9 +37,6 @@ contract StagedPriceCrowdsale is Ownable, TimedCrowdsale
     require(_dates.length == _in_weis.length);
     for(uint256 j = 0; j < _dates.length; ++j)
       stages.push(StagedPrice(_dates[j], _rates[j], _reserves[j], _in_weis[j]));
-
-    // Remove the above and uncomment this when ABIEncoderV2 is ready to ship to live
-    // stages = _stages;
 
     uint256 last = stages.length - 1;
     for(uint256 i = 1; i < last; ++i)
