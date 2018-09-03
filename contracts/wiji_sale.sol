@@ -161,18 +161,15 @@ contract wiji_sale is Ownable,
         StagedPrice(ICO_TOKEN_SALE_END, 0)
       ]
       */
-      [ICO_TOKEN_SALE_START, ICO_TOKEN_SALE_END],
-      [BASE_RATE_30        , ZERO              ],
-      [ICO_TOKEN_SALE_MAX_1, ZERO              ],
-      [false               , false             ]
+      [ICO_TOKEN_SALE_START, ICO_TOKEN_SALE_DATE_2, ICO_TOKEN_SALE_DATE_3, ICO_TOKEN_SALE_END],
+      [BASE_RATE_30        , BASE_RATE_10         , BASE_RATE_0          , ZERO              ],
+      [ICO_TOKEN_SALE_MAX_1, ICO_TOKEN_SALE_MAX_2 , ICO_TOKEN_SALE_MAX_3 , ZERO              ],
+      [false               , false                , false                , false             ]
     )
     public
   {
     require(_token_contract != address(0));
     token_contract = _token_contract;
-
-    addStagedRate(ICO_TOKEN_SALE_DATE_2, BASE_RATE_10, ICO_TOKEN_SALE_MAX_2, false);
-    addStagedRate(ICO_TOKEN_SALE_DATE_3, BASE_RATE_0 , ZERO, false);
   }
 
 

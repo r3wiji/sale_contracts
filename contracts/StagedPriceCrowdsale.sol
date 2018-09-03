@@ -28,7 +28,7 @@ contract StagedPriceCrowdsale is Ownable, TimedCrowdsale
    * @param _rates The stage rates
    * param _stages The stages dates and rates. Note that the date is the starting point
    */
-  constructor(uint256[2] _dates, uint256[2] _rates, uint256[2] _reserves, bool[2] _in_weis)
+  constructor(uint256[4] _dates, uint256[4] _rates, uint256[4] _reserves, bool[4] _in_weis)
     TimedCrowdsale(_dates[0], _dates[_dates.length - 1])
   // Can't wait for ABIEncoderV2
   //constructor(StagedPrice[] _stages)
@@ -64,55 +64,6 @@ contract StagedPriceCrowdsale is Ownable, TimedCrowdsale
   {
     _;
     closingTime = stages[stages.length - 1].date;
-  }
-
-  /**
-   * @dev Add a stage to the crowdsale.
-   * @param _date The date when the new stage starts
-   * @param _rate The new stage rate
-   * @return The index the new stage was inserted at
-   */
-  function addStagedRate(uint256 _date, uint256 _rate, uint256 reserve, bool in_wei)
-  // ABIEncoderV2 WHEN
-  //function addStagedRate(StagedPrice _new_stage)
-    internal onlyOwner beforeOpen updateClosingTime
-    returns (uint256 _new_index)
-  {
-    StagedPrice memory _new_stage = StagedPrice(_date, _rate, reserve, in_wei); // ABIEncoderV2
-
-    require(_new_stage.date > stages[0].date);
-    require(_new_stage.rate > 0);
-
-    _new_index = stages.length;
-    stages.length++;
-
-    while(_new_stage.date < stages[_new_index - 1].date)
-    {
-      stages[_new_index] = stages[_new_index - 1];
-      --_new_index;
-    }
-
-    stages[_new_index] = _new_stage;
-  }
-
-  /**
-   * @dev Remove a stage from the crowdsale.
-   * @param _index The stage index to remove
-   * @return The new number of changes
-   */
-  function removeStagedRate(uint256 _index)
-    internal onlyOwner beforeOpen updateClosingTime
-    returns (uint256 _new_length)
-  {
-    require(_index > 0);
-    require(_index < stages.length);
-
-    _new_length = stages.length - 1;
-    for(uint256 i = _index; i < _new_length; i++)
-      //stages[i] = stages[++i]; This doesn't work in Solidity somehow
-      stages[i] = stages[i + 1];
-
-    --stages.length;
   }
 
   /**
