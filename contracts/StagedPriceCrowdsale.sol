@@ -77,7 +77,7 @@ contract StagedPriceCrowdsale is Ownable, TimedCrowdsale
   {
     for(uint256 i = stages.length - 1; i >= 0; --i)
     // solium-disable-next-line security/no-block-members
-      if(stages[i].date <= block.timestamp)
+      if(stages[i].date <= get_now())
         return stages[i].rate;
 
     return 0;
@@ -93,7 +93,7 @@ contract StagedPriceCrowdsale is Ownable, TimedCrowdsale
   {
     for(uint256 i = stages.length - 1; i >= 0; --i)
     // solium-disable-next-line security/no-block-members
-      if(stages[i].date <= block.timestamp)
+      if(stages[i].date <= get_now())
         return i;
   }
 
@@ -149,7 +149,7 @@ contract StagedPriceCrowdsale is Ownable, TimedCrowdsale
       // This is equivalent to making the next stage start now
       require(c_stage_ix < stages.length - 1);
       // solium-disable-next-line security/no-block-members
-      stages[c_stage_ix + 1].date = block.timestamp;
+      stages[c_stage_ix + 1].date = get_now();
 
       // The remaining wei will use the next stage's rates
       token_amount =  c_tokens +
@@ -157,6 +157,11 @@ contract StagedPriceCrowdsale is Ownable, TimedCrowdsale
     }
 
     return token_amount;
+  }
+
+  function get_now() internal constant returns (uint256)
+  {
+    return block.timestamp;
   }
 
 }
