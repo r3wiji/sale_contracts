@@ -262,7 +262,7 @@ contract wiji_sale is Ownable,
   */
   function price() public view returns (uint256 tokens)
   {
-    return _getTokenAmount(1 ether);
+    return getCurrentRate().mul(1 ether);
   }
 
   /**
