@@ -23,6 +23,7 @@ import "./zeppelin/Ownable.sol";
 import "./zeppelin/Crowdsale.sol";
 import "./zeppelin/MintedCrowdsale.sol";
 import "./zeppelin/IndividuallyCappedCrowdsale.sol";
+import "./zeppelin/TimedCrowdsale.sol";
 
 // --------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------
@@ -34,10 +35,14 @@ import "./zeppelin/IndividuallyCappedCrowdsale.sol";
 
 import "./wiji_token.sol";
 import "./IC_Crowdsale_LUT.sol";
+import "./ClosableCrowdsale.sol";
+import "./StagedPriceCrowdsale.sol";
 
 contract wiji_sale is Ownable,
-  Crowdsale, MintedCrowdsale, IndividuallyCappedCrowdsale,
-  IC_Crowdsale_LUT
+  Crowdsale, MintedCrowdsale,
+  IndividuallyCappedCrowdsale, IC_Crowdsale_LUT,
+  TimedCrowdsale, ClosableCrowdsale,
+  StagedPriceCrowdsale
 {
   using SafeMath for uint256;
 
@@ -46,6 +51,7 @@ contract wiji_sale is Ownable,
   // CONSTANTS ---------------------------------------------------------------
   // -------------------------------------------------------------------------
 
+  uint256 public constant ZERO           = 0;
   uint256 public constant DECIMAL_FACTOR = 10**18;
 
   // Maximum tokens that could be allocated (2 billion) it's unreachable because of token burns
@@ -67,24 +73,32 @@ contract wiji_sale is Ownable,
 
 
   // ICO tokens for sale, the remaining tokens of each sale will be reported to the next
-  // step 1 pre-sale     : Mon, 18 Jun 2018 12:42:42 GMT -
+  // step 1 pre-sale     : 01 Jan 2019 00:00:00 GMT -
   //                       100m token to sell - bonus 30%
   uint256 constant ICO_TOKEN_SALE_MAX_1             =  100000000 * DECIMAL_FACTOR;
-  //uint256 ICO_TOKEN_SALE_DATE_1     = 1529325762;
+  //uint256 ICO_TOKEN_SALE_DATE_1     = 1546300800;
 
-  // step 2 public sale  : Mon, 09 Jul 2018 12:42:42 GMT -
+  // step 2 public sale  : 01 Feb 2019 00:00:00 GMT -
   //                       200m token to sell - bonus 10%
   uint256 constant ICO_TOKEN_SALE_MAX_2             =  200000000 * DECIMAL_FACTOR;
-  uint256 constant ICO_TOKEN_SALE_DATE_2            = 1531140162;
+  uint256 constant ICO_TOKEN_SALE_DATE_2            = 1548979200;
 
-  // step 3 public sale  : Mon, 16 Jul 2018 12:42:42 GMT -
+  // step 3 public sale  : 01 Mar 2019 00:00:00 GMT -
   //                       700m token to sell - bonus  0%
   uint256 constant ICO_TOKEN_SALE_MAX_3             =  700000000 * DECIMAL_FACTOR;
-  uint256 constant ICO_TOKEN_SALE_DATE_3            = 1531744962;
+  uint256 constant ICO_TOKEN_SALE_DATE_3            = 1551398400;
 
-  // End of public sale  : Sun, 26 Aug 2018 12:42:42 GMT -
+  // End of public sale  : 01 Apr 2019 00:00:00 GMT -
   //                        remaining token will be burned
-  uint256 public constant ICO_TOKEN_SALE_END        = 1535287362;
+  uint256 public constant ICO_TOKEN_SALE_START      = 1546300800;
+  uint256 public constant ICO_TOKEN_SALE_END        = 1554076800;
+
+
+  uint256 public constant DEBUG_MULTIPLICATOR       = 1000;
+  // Base exchange rate is set to 1 ETH = 21000 WIJI other rates with discount
+  uint256 public constant BASE_RATE_0               = 21000 * DEBUG_MULTIPLICATOR;
+  uint256 public constant BASE_RATE_10              = 23100 * DEBUG_MULTIPLICATOR;
+  uint256 public constant BASE_RATE_30              = 27300 * DEBUG_MULTIPLICATOR;
 
 
   // PRIVATE class variables (c++ model) -------------------------------------
@@ -94,9 +108,6 @@ contract wiji_sale is Ownable,
   uint256 community_amount_claimed                  = 0;
   // Last community quarter called
   uint256 last_community_quarter_called             = 0;
-
-  // token sale status
-  bool public    token_sale_closed                  = false;
 
   // Issue event index starting from 0.
   //uint256 public issue_index                        = 0;
@@ -134,41 +145,20 @@ contract wiji_sale is Ownable,
     // MODIFIERS ---------------------------------------------------------------
   // -------------------------------------------------------------------------
 
-  // Require that the buyers can still purchase
-  modifier in_progress
-  {
-    require(token_contract.totalSupply() < TOKENS_SALE_HARD_CAP
-            && !token_sale_closed
-            && !is_token_sale_ended());
-    _;
-  }
-
-  // Allow the closing to happen only once
-  modifier before_close
-  {
-    require(!token_sale_closed);
-    _;
-  }
-
-  modifier after_close
-  {
-    require(token_sale_closed);
-    _;
-  }
-
-  // Require that the end of the sale has passed
-  modifier after_token_sale
-  {
-    require(is_token_sale_ended());
-    _;
-  }
-
-    /**
+  /**
    * CONSTRUCTOR
    *
    * @dev Initialize the WIJI ICO Sale
    */
-  constructor(wiji_token _token_contract) Crowdsale(1, msg.sender, _token_contract) public
+  constructor(wiji_token _token_contract)
+    Crowdsale(1, msg.sender, _token_contract)
+    StagedPriceCrowdsale(
+      [ICO_TOKEN_SALE_START, ICO_TOKEN_SALE_DATE_2, ICO_TOKEN_SALE_DATE_3, ICO_TOKEN_SALE_END],
+      [BASE_RATE_30        , BASE_RATE_10         , BASE_RATE_0          , ZERO              ],
+      [ICO_TOKEN_SALE_MAX_1, ICO_TOKEN_SALE_MAX_2 , ICO_TOKEN_SALE_MAX_3 , ZERO              ],
+      [false               , false                , false                , false             ]
+    )
+    public
   {
     require(_token_contract != address(0));
     token_contract = _token_contract;
@@ -205,7 +195,8 @@ contract wiji_sale is Ownable,
      * @param _beneficiary Address performing the token purchase
      * @param _wei Value in wei involved in the purchase
      */
-  function _preValidatePurchase(address _beneficiary, uint256 _wei) internal in_progress
+  function _preValidatePurchase(address _beneficiary, uint256 _wei)
+    internal onlyWhileOpen is_open
   {
     // Minimum amount to invest
     uint256 MINIMUM_TOKEN_BUY      = 0.05 ether;
@@ -225,7 +216,8 @@ contract wiji_sale is Ownable,
    * @param _beneficiary Address receiving the tokens
    * @param _tokens Number of tokens to be purchased
    */
-  function _processPurchase(address _beneficiary, uint256 _tokens) internal in_progress
+  function _processPurchase(address _beneficiary, uint256 _tokens)
+    internal onlyWhileOpen is_open
   {
   //check for hard cap
     require(token_contract.totalSupply().add(_tokens) <= TOKENS_SALE_HARD_CAP);
@@ -247,7 +239,8 @@ contract wiji_sale is Ownable,
   * @param _beneficiary addresses that the tokens will be sent to.
   * @param _tokens_amount the amount of tokens, with decimals expanded (full).
   */
-  function generate_tokens(address _beneficiary, uint256 _tokens_amount) internal before_close
+  function generate_tokens(address _beneficiary, uint256 _tokens_amount)
+    internal is_open
   {
     require (_beneficiary != address(0));
     require (_tokens_amount != 0);
@@ -263,41 +256,13 @@ contract wiji_sale is Ownable,
   // --------------------------------------------------------------------------------
 
 
- /**
-   * @dev Override to extend the way in which ether is converted to tokens.
-   * @param eth_amount Value in wei to be converted into tokens
-   * @return Number of tokens that can be purchased with the specified _weiAmount
-   */
-  function _getTokenAmount(uint256 eth_amount) internal view returns (uint256 tokens)
-  {
-    uint64 _now = get_now();
-    require(_now <= ICO_TOKEN_SALE_END);
-
-    // Base exchange rate is set to 1 ETH = 21000 WIJI other rates with discount
-    uint256 BASE_RATE_0               = 21000 * DEBUG_MULTIPLICATOR;
-    uint256 BASE_RATE_10              = 23100 * DEBUG_MULTIPLICATOR;
-    uint256 BASE_RATE_30              = 27300 * DEBUG_MULTIPLICATOR;
-
-    uint256 supply = token_contract.totalSupply();
-
-    // if date is above the pre sale end 1 or the max number is sold then we propose next step
-    if      ((_now <= ICO_TOKEN_SALE_DATE_2) &&                              // <= Mon, 09 Jul 2018 12:42:42 GMT
-             (supply < ICO_TOKEN_SALE_MAX_1))                          // total < 100m
-      tokens = eth_amount.mul(BASE_RATE_30);
-    else if ((_now <= ICO_TOKEN_SALE_DATE_3) &&                             // <= Mon, 16 Jul 2018 12:42:42 GMT
-             (supply < ICO_TOKEN_SALE_MAX_1 + ICO_TOKEN_SALE_MAX_2))  // total < 100m + 200m
-      tokens = eth_amount.mul(BASE_RATE_10);
-    else                                                                    // <= Sun, 26 Aug 2018 12:42:42 GMT
-      tokens = eth_amount.mul(BASE_RATE_0);
-  }
-
   /**
   * @dev    calculate the current number of WIJI for 1 ether .
   * @return the current price.
   */
   function price() public view returns (uint256 tokens)
   {
-    return _getTokenAmount(1 ether);
+    return getCurrentRate().mul(1 ether);
   }
 
   /**
@@ -311,15 +276,6 @@ contract wiji_sale is Ownable,
   }
 
   /**
-  * @dev    ask if the token sale is finished
-  * @return a bool if it's finshed
-  */
-  function is_token_sale_ended() public constant returns (bool)
-  {
-    return (ICO_TOKEN_SALE_END < get_now());
-  }
-
-  /**
   * @dev Finalize the sale and distribute the fund to all the parties
   *
   *   Now we calculate the numbers of tokens to be issued the base numbers are :
@@ -330,7 +286,8 @@ contract wiji_sale is Ownable,
   *     ADV+BOUNTY  2% : max TOKENS_ADVISORS_MAX  (   40m) - advisors + bounties unlocked
   *
   */
-  function  close_ico() public onlyOwner before_close
+  function  on_close_crowdsale()
+    internal onlyOwner is_closed
   {
     //if the soft_cap is not reached we can't close the ICO
     //if it's never reached then we can only launch the refund method
@@ -358,13 +315,10 @@ contract wiji_sale is Ownable,
     // calculation of community tokens and issue the tokens
     community_fund_tokens = TOKENS_COMMUNITY_MAX.mul(ratio_sold).div(1000000);
     generate_tokens(address(this), community_fund_tokens);
-
-    // close the sale all future calculation will be based on the values
-    token_sale_closed = true;
   }
 
   function  move_unlock_tokens(address _to, uint256 _value)
-    public onlyOwner after_token_sale after_close
+    public onlyOwner afterClose is_closed
   {
     token_contract.transferFrom(address(this), _to, _value);
   }
@@ -373,11 +327,12 @@ contract wiji_sale is Ownable,
   * @dev    Ask for the second half of team tokens
   *         locked for 1 year (365 days after ICO END)
   */
-  function  claim_locked_team_tokens() public onlyOwner after_token_sale after_close
+  function  claim_locked_team_tokens()
+    public onlyOwner afterClose is_closed
   {
     require (!team_claimed);
 
-    uint64   _now = get_now();
+    uint256   _now = get_now();
 
     require (_now >= (ICO_TOKEN_SALE_END + (365*24*60*60)));
 
@@ -394,11 +349,12 @@ contract wiji_sale is Ownable,
   * @dev    Ask for the reserve tokens
   *         locked for 18 months (547 days after ICO END)
   */
-  function  claim_locked_reserve_tokens() public onlyOwner after_token_sale after_close
+  function  claim_locked_reserve_tokens()
+    public onlyOwner afterClose is_closed
   {
     require (!reserve_claimed);
 
-    uint64   _now = get_now();
+    uint256   _now = get_now();
 
     require (_now >= (ICO_TOKEN_SALE_END + (547*24*60*60)));
 
@@ -423,9 +379,10 @@ contract wiji_sale is Ownable,
   *         during time (default 3)
   */
 
-  function  get_possible_community_tokens(uint256 power_factor) public onlyOwner after_token_sale after_close
+  function  get_possible_community_tokens(uint256 power_factor)
+    public onlyOwner afterClose is_closed
   {
-    uint64 _now = get_now();
+    uint256 _now = get_now();
 
     if (power_factor <= 0)
       power_factor = 3;
@@ -489,7 +446,8 @@ contract wiji_sale is Ownable,
   * @dev    Refund if the token sale doesn't reach the soft cap
   * @return none
   */
-  function  refund_contributor(address _addr) public onlyOwner after_token_sale
+  function  refund_contributor(address _addr)
+    public onlyOwner afterClose
   {
     require (1 == 0, "TODO");
     require (token_contract.totalSupply() < TOKENS_SALE_SOFT_CAP);
@@ -506,19 +464,26 @@ contract wiji_sale is Ownable,
   // DEBUG ONLY FUNCTIONS  ----------------------------------------------------------
   // --------------------------------------------------------------------------------
 
-  uint64  public debug_fake_date                    = 0;
-  uint256 public constant DEBUG_MULTIPLICATOR        = 1000;
+  uint256  public debug_fake_date                    = 0;
 
   // @dev Get the current date - used for debug
-  function get_now() internal constant returns (uint64 tokens)
+  function get_now() internal constant returns (uint256 tokens)
   {
     if (debug_fake_date > 0)
       return (debug_fake_date);
-    return (uint64(block.timestamp));
+    return (uint256(block.timestamp));
+  }
+
+  // @dev This modifier overrides TimedCrowdsale's. Remove it to use the real Zeppelin implementation
+  modifier onlyWhileOpen
+  {
+    uint256 _now = get_now();
+    require(_now >= openingTime && _now <= closingTime);
+    _;
   }
 
   // @dev DEBUG set a fake date for debug
-  function debug_set_date(uint64 fake_date) public onlyOwner
+  function debug_set_date(uint256 fake_date) public onlyOwner
   {
     debug_fake_date = fake_date;
   }
